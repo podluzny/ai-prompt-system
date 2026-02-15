@@ -1,81 +1,81 @@
 import { NextResponse } from "next/server"
+import OpenAI from "openai"
 
 export async function GET() {
-  const gatewayUrl = process.env.AI_GATEWAY_URL
-  const apiKey = process.env.AI_GATEWAY_API_KEY
+  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY
 
   const diagnostics: Record<string, any> = {
-    AI_GATEWAY_URL: gatewayUrl ? `${gatewayUrl.slice(0, 30)}...` : "NOT SET",
     AI_GATEWAY_API_KEY: apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : "NOT SET",
   }
 
-  // Test 1: Direct fetch to AI Gateway to get raw error
-  try {
-    const response = await fetch(`${gatewayUrl || "https://ai-gateway.vercel.sh"}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
-        messages: [{ role: "user", content: "Say OK" }],
-        max_tokens: 10,
-      }),
-    })
-
-    const body = await response.text()
-    diagnostics.directFetch = {
-      status: response.status,
-      statusText: response.statusText,
-      body: body.slice(0, 500),
-      headers: Object.fromEntries(response.headers.entries()),
-    }
-
-    if (response.ok) {
-      const data = JSON.parse(body)
-      return NextResponse.json({
-        success: true,
-        message: "AI Gateway работает!",
-        response: data.choices?.[0]?.message?.content,
+  if (!apiKey) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "API ключ не установлен",
+        instructions: [
+          "Установите OPENAI_API_KEY или AI_GATEWAY_API_KEY в переменных окружения",
+          "Для OpenAI получите ключ на https://platform.openai.com/api-keys",
+        ],
         diagnostics,
-      })
-    }
-  } catch (error: any) {
-    diagnostics.directFetchError = error.message
+      },
+      { status: 400 }
+    )
   }
 
-  // Test 2: Try AI SDK generateText
+  // Test OpenAI SDK with direct OpenAI API
   try {
-    const { generateText } = await import("ai")
-    const result = await generateText({
-      model: "openai/gpt-4o-mini",
-      prompt: "Say OK",
-      maxOutputTokens: 10,
+    console.log("[v0] Testing OpenAI SDK connection...")
+    
+    const client = new OpenAI({
+      apiKey: apiKey,
+      baseURL: "https://api.openai.com/v1",
     })
+
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: "Say OK" }],
+      max_tokens: 10,
+    })
+
+    const response = completion.choices[0]?.message?.content || "No response"
+    
+    console.log("[v0] OpenAI SDK test successful:", response)
+
     return NextResponse.json({
       success: true,
-      message: "AI SDK Gateway работает!",
-      response: result.text,
-      diagnostics,
+      message: "OpenAI SDK работает корректно!",
+      response: response,
+      model: completion.model,
+      diagnostics: {
+        ...diagnostics,
+        finishReason: completion.choices[0]?.finish_reason,
+        usage: completion.usage,
+      },
     })
   } catch (error: any) {
-    diagnostics.aiSdkError = error.message
-  }
+    console.error("[v0] OpenAI SDK error:", error)
+    
+    diagnostics.error = {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      status: error.status,
+    }
 
-  return NextResponse.json(
-    {
-      success: false,
-      message: "AI Gateway не работает. Проверьте настройки:",
-      instructions: [
-        "1. Откройте Vercel Dashboard -> ваш проект -> Settings -> AI Gateway",
-        "2. Убедитесь что AI Gateway включен и провайдеры (OpenAI, Anthropic) настроены с API ключами",
-        "3. Создайте AI Gateway API Key если не создан",
-        "4. Проверьте что AI_GATEWAY_API_KEY и AI_GATEWAY_URL установлены в Environment Variables проекта",
-        "5. После изменений сделайте Redeploy проекта",
-      ],
-      diagnostics,
-    },
-    { status: 500 },
-  )
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Ошибка подключения через OpenAI SDK",
+        error: error.message,
+        instructions: [
+          "Проверьте что API ключ корректен",
+          "Убедитесь что у вас есть доступ к OpenAI API",
+          "Проверьте баланс аккаунта на https://platform.openai.com/account/usage",
+        ],
+        diagnostics,
+      },
+      { status: 500 }
+    )
+  }
 }
