@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
+
 export async function POST(request: NextRequest) {
   try {
     const { provider, model, apiKey, folderId, baseURL } = await request.json()
