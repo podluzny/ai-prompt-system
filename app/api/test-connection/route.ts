@@ -1,81 +1,66 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-
 export async function POST(request: NextRequest) {
   try {
-    const { provider, model, apiKey, folderId, baseURL } = await request.json()
+    const { provider, model, apiKey: userApiKey, folderId, baseURL } = await request.json()
 
     console.log("[v0] Testing connection for:", { provider, model })
 
-    //if (provider === "ai-gateway") {
-      // AI Gateway models in v0 preview don't have direct access testing
-      //return NextResponse.json({
-      //  status: "OK",
-      //  message: "AI Gateway модели работают через Vercel AI SDK",
-      //})
-    //}
-if (provider === "ai-gateway") {
-  const apiKey = process.env.AI_GATEWAY_API_KEY
-  try {
-    if (!apiKey) {
-      return NextResponse.json({
-        status: "ERROR",
-        message: "Vercel API Token не указан",
-      })
-    }
-
-    const gatewayUrl =
-      //"https://api.vercel.com/v1/chat/completions"
-      baseURL || "https://ai-gateway.vercel.sh/v3/ai/chat/completions" 
-      //baseURL || "https://ai-gateway.vercel.sh/v1/app/api/test-connection/route"
+    // Test AI Gateway (Vercel)
+    if (provider === "ai-gateway") {
+      const gatewayApiKey = process.env.AI_GATEWAY_API_KEY || userApiKey
       
-      //baseURL || "https://ai-gateway.vercel.sh/v3/ai/language-model"
-      
-      //baseURL || "https://ai-gateway.vercel.sh/v3/ai"
-      // https://ai-gateway.vercel.sh/v3/ai
-      //baseURL || "https://gateway.vercel.ai/v1/chat/completions"
+      if (!gatewayApiKey) {
+        return NextResponse.json({
+          status: "ERROR",
+          message: "Vercel API Token не указан",
+        })
+      }
 
-    const response = await fetch(gatewayUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: model, // например: "openai/gpt-4o-mini"
-        messages: [
-          { role: "user", content: "Test connection. Reply with 'OK'." },
-        ],
-        max_tokens: 10,
-      }),
-    })
+      try {
+        // Правильный URL для Vercel AI SDK
+        const gatewayUrl = baseURL || "https://gateway.ai.cloudflare.com/v1/chat/completions"
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      return NextResponse.json({
-        status: "ERROR",
-        message: `HTTP ${response.status}: ${errorText}`,
-      })
+        const response = await fetch(gatewayUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${gatewayApiKey}`,
+          },
+          body: JSON.stringify({
+            model: model, // например: "openai:gpt-4"
+            messages: [
+              { role: "user", content: "Test connection. Reply with 'OK'." },
+            ],
+            max_tokens: 10,
+          }),
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          return NextResponse.json({
+            status: "ERROR",
+            message: `HTTP ${response.status}: ${errorText}`,
+          })
+        }
+
+        const data = await response.json()
+
+        return NextResponse.json({
+          status: "OK",
+          message: "Подключение к Vercel AI Gateway успешно установлено",
+          response: data.choices?.[0]?.message?.content || "OK",
+        })
+      } catch (error: any) {
+        return NextResponse.json({
+          status: "ERROR",
+          message: error.message || "Ошибка подключения к Vercel AI Gateway",
+        })
+      }
     }
-
-    const data = await response.json()
-
-    return NextResponse.json({
-      status: "OK",
-      message: "Подключение к Vercel AI Gateway успешно установлено",
-      response: data.choices?.[0]?.message?.content || "OK",
-    })
-  } catch (error: any) {
-    return NextResponse.json({
-      status: "ERROR",
-      message: error.message || "Ошибка подключения к Vercel AI Gateway",
-    })
-  }
-}
-
 
     // If no API key and not Yandex, can't test
-    if (!apiKey && provider !== "yandex-ai") {
+    if (!userApiKey && provider !== "yandex-ai") {
       return NextResponse.json({
         status: "ERROR",
         message: "API ключ не указан. Добавьте API ключ для проверки подключения.",
@@ -89,7 +74,7 @@ if (provider === "ai-gateway") {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${userApiKey}`,
           },
           body: JSON.stringify({
             model: model,
@@ -127,7 +112,7 @@ if (provider === "ai-gateway") {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": apiKey,
+            "x-api-key": userApiKey,
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
@@ -169,7 +154,7 @@ if (provider === "ai-gateway") {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${userApiKey}`,
           },
           body: JSON.stringify({
             model: model,
@@ -207,12 +192,11 @@ if (provider === "ai-gateway") {
       try {
         const url = baseURL || "https://rest-assistant.api.cloud.yandex.net/v1"
 
-        // Yandex AI uses /responses endpoint (not /responses/create)
         const response = await fetch(`${url}/responses`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${userApiKey}`,
             "OpenAI-Project": folderId || "",
           },
           body: JSON.stringify({
@@ -253,7 +237,7 @@ if (provider === "ai-gateway") {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${userApiKey}`,
           },
           body: JSON.stringify({
             model: model,
