@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
       try {
         // Правильный URL для Vercel AI SDK
-        const gatewayUrl = baseURL || "https://gateway.ai.cloudflare.com/v1/chat/completions"
+        const gatewayUrl = baseURL || "https://gateway.vercel.ai/v1/chat/completions"
 
         const response = await fetch(gatewayUrl, {
           method: "POST",
