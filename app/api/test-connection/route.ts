@@ -29,8 +29,6 @@ if (provider === "ai-gateway") {
       // https://ai-gateway.vercel.sh/v3/ai
       //baseURL || "https://gateway.vercel.ai/v1/chat/completions"
 
-console.log("[v0] Testing connection for:", { gatewayUrl, apiKey })
-
     const response = await fetch(gatewayUrl, {
       method: "POST",
       headers: {
