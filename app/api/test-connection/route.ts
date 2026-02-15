@@ -24,7 +24,7 @@ if (provider === "ai-gateway") {
     }
 
     const gatewayUrl =
-      baseURL || "https://api.vercel.com/v1/ai/gateway/chat/completions"
+      baseURL || "https://api.vercel.com/v3/ai/gateway/chat/completions"
       //baseURL || "https://ai-gateway.vercel.sh/v3/ai"
       // https://ai-gateway.vercel.sh/v3/ai
       //baseURL || "https://gateway.vercel.ai/v1/chat/completions"
